@@ -1,0 +1,25 @@
+{
+	"name": "vistream-online",
+	"version": "1.0.0",
+	"api_version": "1.0.0",
+	"keywords": [
+		"ViStream",
+		"streaming",
+		"platform"
+	],
+	"manufacturer": "ViStream",
+	"product": "online",
+	"shortname": "vistream",
+	"homepage": "https://www.vistream.online",
+	"description": "Streaming platform for events, conferences and more.",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "ViStream GmbH",
+	"license": "MIT",
+	"dependencies": {
+		"socket.io-client": "3.1.0",
+		"zlibjs": "0.3.1"
+	}
+}
