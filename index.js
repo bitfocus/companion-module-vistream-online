@@ -150,7 +150,7 @@ class instance extends instance_skel {
 			delete this.io
 		}
 		if (!this.config.baseUrl && this.config.token) {
-			this.config = parse_token(this.config)
+			this.config = this.parse_token(this.config)
 		}
 		if (!this.config.baseUrl) {
 			this.log('info', 'Websocket connection not yet possible, missing token in config')
@@ -206,7 +206,7 @@ class instance extends instance_skel {
 
 	// REQUIRED: whenever users click save in the modules config, this gets triggered with new config
 	updateConfig(config) {
-		this.config = parse_token(config)
+		this.config = this.parse_token(config)
 		this.log('debug', 'Config updated')
 		this.socket_init()
 	}
