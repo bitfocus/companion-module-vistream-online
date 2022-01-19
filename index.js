@@ -208,14 +208,14 @@ class instance extends instance_skel {
 	updateConfig(config) {
 		this.config = parse_token(config)
 		this.log('debug', 'Config updated')
-		this.socket_init(this)
+		this.socket_init()
 	}
 
 	// REQUIRED: this is called when companion initialized the module, all set up should be triggered here
 	init() {
 		this.status(this.STATUS_ERROR)
 		this.log('debug', 'init')
-		this.socket_init(this)
+		this.socket_init()
 	}
 
 	// REQUIRED: drop all websockets and stuff here, before unloading
