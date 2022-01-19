@@ -20,6 +20,7 @@
 	"license": "MIT",
 	"dependencies": {
 		"socket.io-client": "3.1.0",
-		"zlibjs": "0.3.1"
+		"zlibjs": "0.3.1",
+		"secure-json-logic": "0.9.11"
 	}
 }

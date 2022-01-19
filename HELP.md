@@ -1,14 +1,14 @@
-## ViStream·Online Companion module
+## ViStream.online Companion module
 
-Control your livestreaming event on  [https://www.vistream.online](https://www.vistream.online?src=companion) with cuelists.
+ViStream.online is the first real-time CMS for event operators. All participants can be cue-controlled through an event.
+
+[https://www.vistream.online](https://www.vistream.online?src=companion)
 
 ### Configuration
 
-- Add the a Cuelist module to your events modules list
-- Open the modules edit section
-- Copy the token
-- Insert the token into the corresponding field in the companion setup
-- Click save
+- Add a Cuelist module on the ViStream platform.
+- Edit the module and copy the Bitfocus Companion token.
+- Add the token to the corresponding Companion setup field and save it.
 
 ### Available actions
 
@@ -17,6 +17,6 @@ Control your livestreaming event on  [https://www.vistream.online](https://www.v
 ### Available feedback
 
 - Mod online status
-- Stream-out status
+- Cue status
 
 ### Available variables
