@@ -117,24 +117,30 @@ class instance extends instance_skel {
 	// receive and use feedback events here
 	feedback(feedback) {
 		this.log('debug', 'Feedback triggered: ', feedback);
-		var e;
+		var e, state = false;
 		switch (feedback.type) {
 			case 'content_state':
-				e = this.cache.feedbacks.content_state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
-				if (e.online === 1) {
-					return {
-						color: feedback.options.fg,
-						bgcolor: feedback.options.bg
-					};
+				state = this.cache.feedbacks.content_state ?? false;
+				if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
+					e = state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
+					if (e.online === 1) {
+						return {
+							color: feedback.options.fg,
+							bgcolor: feedback.options.bg
+						};
+					}
 				}
 				break;
 			case 'cue_state':
-				e = this.cache.feedbacks.cue_state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
-				if (e.online === 1) {
-					return {
-						color: feedback.options.fg,
-						bgcolor: feedback.options.bg
-					};
+				state = this.cache.feedbacks.cue_state ?? false;
+				if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
+					e = state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
+					if (e.online === 1) {
+						return {
+							color: feedback.options.fg,
+							bgcolor: feedback.options.bg
+						};
+					}
 				}
 				break;
 		}
