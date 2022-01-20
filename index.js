@@ -1,4 +1,8 @@
-/*jshint esversion: 6 */
+/*jshint esversion: 11 */
+/*globals require*/
+/*globals URLSearchParams*/
+/*globals Buffer*/
+/*globals escape*/
 const io = require('socket.io-client');
 const rawinflate = require('zlibjs').RawInflate;
 const SecureJSONLogic = require('secure-json-logic');
@@ -9,7 +13,11 @@ class instance extends instance_skel {
 	// REQUIRED: constructor
 	constructor(system, id, config) {
 		super(system, id, config);
-		this.cache = {};
+		this.cache = {
+			actions: {},
+			presets: {},
+			feedbacks: {}
+		};
 	}
 
 	// REQUIRED: Return config fields for web config
@@ -34,6 +42,9 @@ class instance extends instance_skel {
 
 	// Set up actions, needs data from modules to be availabe
 	init_actions(actions) {
+		if (!actions) {
+			return;
+		}
 		for (var i in actions) {
 			if (actions[i].options) {
 				for (var j in actions[i].options) {
@@ -87,12 +98,18 @@ class instance extends instance_skel {
 
 	// define presets, could be retrieved from xhr request
 	init_presets(presets) {
+		if (!presets) {
+			return;
+		}
 		this.cache.presets = presets;
 		this.setPresetDefinitions(presets);
 	}
 
 	// register feedback handler
 	init_feedbacks(feedbacks) {
+		if (!feedbacks) {
+			return;
+		}
 		this.cache.feedbacks = feedbacks;
 		this.setFeedbackDefinitions(feedbacks);
 	}
@@ -103,8 +120,8 @@ class instance extends instance_skel {
 		var e;
 		switch (feedback.type) {
 			case 'content_state':
-				e = this.cache.feedbacks.content_state.options[0].choices.find((x) => x.id == feedback.options.id);
-				if (e.online === '1') {
+				e = this.cache.feedbacks.content_state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
+				if (e.online === 1) {
 					return {
 						color: feedback.options.fg,
 						bgcolor: feedback.options.bg
@@ -112,8 +129,8 @@ class instance extends instance_skel {
 				}
 				break;
 			case 'cue_state':
-				e = this.cache.feedbacks.cue_state.options[0].choices.find((x) => x.id == feedback.options.id);
-				if (e.online === '1') {
+				e = this.cache.feedbacks.cue_state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
+				if (e.online === 1) {
 					return {
 						color: feedback.options.fg,
 						bgcolor: feedback.options.bg
@@ -156,17 +173,11 @@ class instance extends instance_skel {
 			if (err !== null) {
 				this.log('error', 'HTTP POST Request failed (' + result.error.code + ')');
 				this.status(this.STATUS_ERROR, result.error.code);
-			} else if (result.response.statusCode === 200) {
+			} else if (result.response.statusCode === 200 && result.data) {
 				this.log('info', 'load config');
-				if (result.data.actions) {
-					this.init_actions(result.data.actions);
-				}
-				if (result.data.presets) {
-					this.init_presets(result.data.presets);
-				}
-				if (result.data.feedbacks) {
-					this.init_feedbacks(result.data.feedbacks);
-				}
+				this.init_actions(result.data.actions);
+				this.init_presets(result.data.presets);
+				this.init_feedbacks(result.data.feedbacks);
 				this.checkFeedbacks('content_state');
 				this.checkFeedbacks('cue_state');
 			} else {
@@ -203,13 +214,14 @@ class instance extends instance_skel {
 			});
 			this.io.off('vs').on('vs', (data) => {
 				this.log('debug', 'Websocket received data');
-				var e, json =
+				var e, state = false, json =
 					typeof data !== 'object' ? JSON.parse(data)
-						: JSON.parse(utf8ToString(new rawinflate.Zlib.RawInflate(new Uint8Array(data)).decompress()));
+						: JSON.parse(new TextDecoder().decode(new rawinflate(new Uint8Array(data)).decompress()));
 				switch (json.action) {
 					case 'change_content_state':
-						if (this.cache.feedbacks.content_state) {
-							e = this.cache.feedbacks.content_state.options[0].choices.find((x) => x.id == json.id);
+						state = this.cache.feedbacks.content_state ?? false;
+						if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
+							e = state.options[0].choices.find((x) => x.id.toString() === json.id.toString());
 							if (e) {
 								e.online = json.online;
 								this.checkFeedbacks('content_state');
@@ -217,8 +229,9 @@ class instance extends instance_skel {
 						}
 						break;
 					case 'change_cue_state':
-						if (this.cache.feedbacks.cue_state) {
-							e = this.cache.feedbacks.cue_state.options[0].choices.find((x) => x.id == json.id);
+						state = this.cache.feedbacks.cue_state ?? false;
+						if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
+							e = state.options[0].choices.find((x) => x.id.toString() === json.id.toString());
 							if (e) {
 								e.online = json.online;
 								this.checkFeedbacks('cue_state');
@@ -228,6 +241,7 @@ class instance extends instance_skel {
 					case 'change_content':
 						this.set_config();
 						break;
+					default: this.log('warning', 'Feedback for a feature that is not implemented. Maybe you are missing an update? ' + json.action);
 				}
 				this.status(this.STATUS_OK);
 			});
@@ -266,17 +280,6 @@ class instance extends instance_skel {
 		}
 		this.log('debug', 'destroy');
 	}
-}
-
-// Encode Websocket
-function utf8ToString(uintArray) {
-	'use strict';
-	var encodedString = '';
-	for (var i = 0; i < uintArray.length; i++) {
-		encodedString += String.fromCharCode(uintArray[i]);
-	}
-
-	return decodeURIComponent(escape(encodedString));
 }
 
 exports = module.exports = instance;
