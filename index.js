@@ -4,7 +4,7 @@
 /*globals Buffer*/
 /*globals escape*/
 const io = require('socket.io-client');
-const rawinflate = require('zlibjs').RawInflate;
+const rawinflate = require('zlibjs/bin/rawinflate.min.js');
 const SecureJSONLogic = require('secure-json-logic');
 
 var instance_skel = require('../../instance_skel');
@@ -222,7 +222,7 @@ class instance extends instance_skel {
 				this.log('debug', 'Websocket received data');
 				var e, state = false, json =
 					typeof data !== 'object' ? JSON.parse(data)
-						: JSON.parse(new TextDecoder().decode(new rawinflate(new Uint8Array(data)).decompress()));
+						: JSON.parse(new TextDecoder().decode(new rawinflate.Zlib.RawInflate(new Uint8Array(data)).decompress()));
 				switch (json.action) {
 					case 'change_content_state':
 						state = this.cache.feedbacks.content_state ?? false;
