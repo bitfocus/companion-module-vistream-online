@@ -105,6 +105,17 @@ class instance extends instance_skel {
 		this.setPresetDefinitions(presets);
 	}
 
+	// define variables, could be retrieved from xhr request
+	init_variables(variables, variableDefinitions) {
+		if (typeof variables !== 'object') {
+			return;
+		}
+		this.setVariables(variables);
+		if (typeof variableDefinitions === 'object') {
+			this.setVariableDefinitions(variableDefinitions);
+		}
+	}
+
 	// register feedback handler
 	init_feedbacks(feedbacks) {
 		if (!feedbacks) {
@@ -123,7 +134,7 @@ class instance extends instance_skel {
 				state = this.cache.feedbacks.content_state ?? false;
 				if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
 					e = state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
-					if (e.online === 1) {
+					if (e && e.online === 1) {
 						return {
 							color: feedback.options.fg,
 							bgcolor: feedback.options.bg
@@ -135,7 +146,7 @@ class instance extends instance_skel {
 				state = this.cache.feedbacks.cue_state ?? false;
 				if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
 					e = state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
-					if (e.online === 1) {
+					if (e && e.online === 1) {
 						return {
 							color: feedback.options.fg,
 							bgcolor: feedback.options.bg
@@ -183,6 +194,7 @@ class instance extends instance_skel {
 				this.log('info', 'load config');
 				this.init_actions(result.data.actions);
 				this.init_presets(result.data.presets);
+				this.init_variables(result.data.variables, result.data.variableDefinitions);
 				this.init_feedbacks(result.data.feedbacks);
 				this.checkFeedbacks('content_state');
 				this.checkFeedbacks('cue_state');
@@ -194,6 +206,7 @@ class instance extends instance_skel {
 
 	// helper to establish the socket connection
 	socket_init() {
+		this.setVariable('websocket', 'offline');
 		if (this.io !== undefined) {
 			this.io.close();
 			delete this.io;
@@ -214,6 +227,7 @@ class instance extends instance_skel {
 				path: url
 			});
 			this.io.off('connect').on('connect', () => {
+				this.setVariable('websocket', 'online');
 				this.log('debug', 'Websocket connected');
 				this.set_config();
 				this.status(this.STATE_OK);
@@ -247,17 +261,23 @@ class instance extends instance_skel {
 					case 'change_content':
 						this.set_config();
 						break;
-					default: this.log('warning', 'Feedback for a feature that is not implemented. Maybe you are missing an update? ' + json.action);
+					case 'change_variable':
+						this.setVariable(json.var, json.value);
+						break;
+					default:
+						this.log('warning', 'Feedback for a feature that is not implemented. Maybe you are missing an update? ' + json.action);
 				}
 				this.status(this.STATUS_OK);
 			});
 			this.io.off('disconnect').on('disconnect', () => {
 				this.log('warning', 'Websocket disconnected');
 				this.status(this.STATUS_WARNING, 'Connection lost');
+				this.setVariable('websocket', 'offline');
 			});
 			this.io.off('connect_error').on('connect_error', (e) => {
 				this.log('error', 'Websocket error: ' + e.message);
 				this.status(this.STATUS_ERROR, 'Connection error');
+				this.setVariable('websocket', 'offline');
 			});
 		} catch (e) {
 			this.log('error', 'Error while conecting websocket: ' + e.message);
