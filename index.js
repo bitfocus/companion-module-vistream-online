@@ -262,7 +262,10 @@ class instance extends instance_skel {
 						this.set_config();
 						break;
 					case 'change_variable':
-						this.setVariable(json.var, json.value);
+						if (!json.var || json.var.toString().length === 0) {
+							return;
+						}
+						this.setVariable(json.var.toString(), json.value);
 						break;
 					default:
 						this.log('warning', 'Feedback for a feature that is not implemented. Maybe you are missing an update? ' + json.action);
