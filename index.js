@@ -60,7 +60,6 @@ class instance extends instance_skel {
 
 	// call an action from user interactions
 	action(action) {
-		this.log('debug', 'init action');
 		if (this.cache.actions[action.action]) {
 			var b = new Buffer(action.action.substring(2), 'base64');
 			if (!this.actions) {
@@ -75,7 +74,6 @@ class instance extends instance_skel {
 				params.append('cp', 'run');
 				params.append('actions', JSON.stringify(this.actions));
 				this.log('debug', 'send action');
-				console.log(params.toString());
 				this.system.emit(
 					'rest',
 					this.cache.config.endPoint,
@@ -158,7 +156,7 @@ class instance extends instance_skel {
 					} else {
 						return {
 							text: e.name
-						};						
+						};
 					}
 				}
 				break;
