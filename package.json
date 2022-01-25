@@ -10,7 +10,7 @@
 	"manufacturer": "ViStream",
 	"product": "online",
 	"shortname": "vistream",
-	"homepage": "https://www.vistream.online",
+	"homepage": "https://github.com/bitfocus/companion-module-vistream-online/blob/main/HELP.md",
 	"description": "Streaming platform for events, conferences and more.",
 	"main": "index.js",
 	"scripts": {
