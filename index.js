@@ -272,6 +272,9 @@ class instance extends instance_skel {
 							return;
 						}
 						this.setVariable(json.var.toString(), json.value);
+						if(json.reset) {
+							this.setVariable(json.var.toString(), '');
+						}
 						break;
 					default:
 						this.log('warning', 'Feedback for a feature that is not implemented. Maybe you are missing an update? ' + json.action);
