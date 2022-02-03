@@ -147,15 +147,15 @@ class instance extends instance_skel {
 				if (state && state.options !== undefined && options !== undefined && options.choices !== undefined) {
 					e = options.choices.find((x) => x.id.toString() === feedback.options[type].toString());
 					if (e && e.state === 1) {
-						return {
-							color: feedback.options.fg,
-							bgcolor: feedback.options.bg,
-							text: e.name
-						};
+						let ret = {};
+						if(feedback.options.properties.includes('fg')) ret.color = feedback.options.fg;
+						if(feedback.options.properties.includes('bg')) ret.bgcolor = feedback.options.bg;
+						if(feedback.options.properties.includes('text') && e.name) ret.text = e.name;
+						return ret;
 					} else {
-						return {
-							text: e.name
-						};
+						let ret = {};
+						if(feedback.options.properties.includes('text') && e.name) ret.text = e.name;
+						return ret;
 					}
 				}
 				break;
