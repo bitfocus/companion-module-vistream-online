@@ -122,6 +122,15 @@ class instance extends instance_skel {
 		if (!feedbacks) {
 			return;
 		}
+		for (var i in feedbacks) {
+			if (feedbacks[i].options) {
+				for (var j in feedbacks[i].options) {
+					if (typeof (feedbacks[i].options[j].isVisible) === 'object' && feedbacks[i].options[j].isVisible.logic && feedbacks[i].options[j].isVisible.vars) {
+						feedbacks[i].options[j].isVisible = SecureJSONLogic(feedbacks[i].options[j].isVisible.logic, feedbacks[i].options[j].isVisible.vars);
+					}
+				}
+			}
+		}
 		this.cache.feedbacks = feedbacks;
 		this.setFeedbackDefinitions(feedbacks);
 	}
@@ -131,23 +140,13 @@ class instance extends instance_skel {
 		this.log('debug', 'Feedback triggered: ', feedback);
 		var e, state = false;
 		switch (feedback.type) {
-			case 'content_state':
-				state = this.cache.feedbacks.content_state ?? false;
-				if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
-					e = state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
-					if (e && e.online === 1) {
-						return {
-							color: feedback.options.fg,
-							bgcolor: feedback.options.bg
-						};
-					}
-				}
-				break;
-			case 'cue_state':
-				state = this.cache.feedbacks.cue_state ?? false;
-				if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
-					e = state.options[0].choices.find((x) => x.id.toString() === feedback.options.id.toString());
-					if (e && e.online === 1) {
+			case 'feedback_state':
+				state = this.cache.feedbacks.feedback_state ?? false;
+				let type = feedback.options.type.toString();
+				let options = state.options.find((x) => x.id.toString() === type);
+				if (state && state.options !== undefined && options !== undefined && options.choices !== undefined) {
+					e = options.choices.find((x) => x.id.toString() === feedback.options[type].toString());
+					if (e && e.state === 1) {
 						return {
 							color: feedback.options.fg,
 							bgcolor: feedback.options.bg,
@@ -202,8 +201,7 @@ class instance extends instance_skel {
 				this.init_presets(result.data.presets);
 				this.init_variables(result.data.variables, result.data.variableDefinitions);
 				this.init_feedbacks(result.data.feedbacks);
-				this.checkFeedbacks('content_state');
-				this.checkFeedbacks('cue_state');
+				this.checkFeedbacks('feedback_state');
 			} else {
 				this.status(this.STATUS_ERROR);
 			}
@@ -244,23 +242,15 @@ class instance extends instance_skel {
 					typeof data !== 'object' ? JSON.parse(data)
 						: JSON.parse(new TextDecoder().decode(new rawinflate.Zlib.RawInflate(new Uint8Array(data)).decompress()));
 				switch (json.action) {
-					case 'change_content_state':
-						state = this.cache.feedbacks.content_state ?? false;
-						if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
-							e = state.options[0].choices.find((x) => x.id.toString() === json.id.toString());
+					case 'change_feedback_state':
+						state = this.cache.feedbacks.feedback_state ?? false;
+						let type = json.type.toString();
+						let options = state.options.find((x) => x.id.toString() === type);
+						if (state && state.options !== undefined && options !== undefined && options.choices !== undefined) {
+							e = options.choices.find((x) => x.id.toString() === json.id.toString());
 							if (e) {
-								e.online = json.online;
-								this.checkFeedbacks('content_state');
-							}
-						}
-						break;
-					case 'change_cue_state':
-						state = this.cache.feedbacks.cue_state ?? false;
-						if (state && state.options !== undefined && state.options[0] !== undefined && state.options[0].choices !== undefined) {
-							e = state.options[0].choices.find((x) => x.id.toString() === json.id.toString());
-							if (e) {
-								e.online = json.online;
-								this.checkFeedbacks('cue_state');
+								e.state = json.state;
+								this.checkFeedbacks('feedback_state');
 							}
 						}
 						break;
