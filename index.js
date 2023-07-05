@@ -1,51 +1,54 @@
 /*jshint esversion: 11 */
-/*globals require*/
 /*globals URLSearchParams*/
 /*globals Buffer*/
-/*globals escape*/
-const io = require('socket.io-client');
-const rawinflate = require('zlibjs/bin/rawinflate.min.js');
-const SecureJSONLogic = require('secure-json-logic');
+import { InstanceBase, runEntrypoint, InstanceStatus } from '@companion-module/base'
+import io from 'socket.io-client';
+import got from 'got'
+import rawinflate from 'zlibjs/bin/rawinflate.min.js';
 
-var instance_skel = require('../../instance_skel');
-
-class instance extends instance_skel {
+class ViStreamInstance extends InstanceBase {
 	// REQUIRED: constructor
 	constructor(system, id, config) {
 		super(system, id, config);
 		this.cache = {
 			actions: {},
 			presets: {},
-			feedbacks: {}
+			feedbacks: {},
+			targetVersion: 3
 		};
 	}
 
 	// REQUIRED: Return config fields for web config
-	config_fields() {
+	
+	getConfigFields() {
 		return [
 			{
-				type: 'text',
+				type: 'static-text',
 				id: 'info',
 				width: 12,
 				label: 'Information',
-				value: "This is a ViStream integration, <br>Click 'Save' before setting up buttons",
+				value: 'This is a ViStream integration, <br>Click \'Save\' before setting up buttons<br>(Feedbacks are broken)'
 			},
 			{
 				type: 'textinput',
 				id: 'token',
+				width: 12,
 				label: 'Token (Copy from cuelist module on ViStream platform)',
 				default: '',
-				required: true,
+				required: true
 			},
 		];
 	}
 
 	// Set up actions, needs data from modules to be availabe
-	init_actions(actions) {
+	init_actions(actions, callback) {
 		if (!actions) {
+			this.log('warn', 'setting config with empty actions!')
 			return;
 		}
 		for (var i in actions) {
+			actions[i].callback = callback;
+			actions[i].instance = this;
 			if (actions[i].options) {
 				for (var j in actions[i].options) {
 					if (typeof (actions[i].options[j].isVisible) === 'object' && actions[i].options[j].isVisible.logic && actions[i].options[j].isVisible.vars) {
@@ -55,51 +58,86 @@ class instance extends instance_skel {
 			}
 		}
 		this.cache.actions = actions;
-		this.setActions(actions);
+		this.setActionDefinitions(actions);
 	}
 
 	// call an action from user interactions
 	action(action) {
-		if (this.cache.actions[action.action]) {
-			var b = new Buffer(action.action.substring(2), 'base64');
-			if (!this.actions) {
-				this.actions = [];
+		let self = this.instance
+		if (self.cache.actions[action.actionId]) {
+			var b = new Buffer(action.actionId.substring(2), 'base64');
+			if (!self.actions) {
+				self.actions = [];
 			}
-			this.actions.push([b.toString(), action.options]);
-			if (this.run_timer) {
-				clearTimeout(this.run_timer);
+			self.actions.push([b.toString(), action.options]);
+			if (self.run_timer) {
+				clearTimeout(self.run_timer);
 			}
-			this.run_timer = setTimeout(() => {
-				var params = new URLSearchParams(this.cache.config.searchParams.toString());
-				params.append('cp', 'run');
-				params.append('actions', JSON.stringify(this.actions));
-				this.log('debug', 'send action');
-				this.system.emit(
-					'rest',
-					this.cache.config.endPoint,
-					params.toString(),
-					(err, result) => {
-						if (err !== null) {
-							this.log('error', 'HTTP POST Request failed (' + result.error.code + ')');
-							this.status(this.STATUS_ERROR, result.error.code);
-						} else {
-							this.log('info', 'Action sent');
-							this.status(this.STATUS_OK);
-						}
-					},
-					{
-						'Content-Type': 'application/x-www-form-urlencoded',
-					}
-				);
-				this.actions = [];
-				delete this.run_timer;
+			self.run_timer = setTimeout(async () => {
+				let params = {
+					v: self.cache.targetVersion,
+					cp: 'run',
+					actions: JSON.stringify(self.actions)
+				}
+				got.post(self.cache.config.endPoint, {form: params}).then(response=>{
+					self.updateStatus(InstanceStatus.Ok, response.statusCode);
+					self.actions = [];
+				}).catch(e=>{
+					self.log('error', 'HTTP POST Request failed (' + e + ')');
+					self.updateStatus(InstanceStatus.ConnectionFailure, e);
+					self.actions = [];
+				});
+				delete self.run_timer;
 			}, 1);
+		} else {
+			self.log('warn', 'You triggered an action, that has not been defined(' + action.actionId + ').')
+		}
+	}
+
+	// register feedback handler
+	init_feedbacks(feedbacks, callback) {
+		if (!feedbacks) {
+			this.log('warn', 'setting config with empty feedbacks!')
+			return;
+		}
+		for (var i in feedbacks) {
+			feedbacks[i].callback = callback;
+			feedbacks[i].instance = this;
+		}
+		this.cache.feedbacks = feedbacks;
+		this.setFeedbackDefinitions(feedbacks);
+	}
+
+	// receive and use feedback events here
+	feedback(feedback) {
+		let self = this.instance;
+		var e, state = false;
+		switch (feedback.feedbackId) {
+			case 'feedback_mod':
+				state = self.cache.feedbacks.feedback_mod ?? false;
+				let options_mod = state.options.find((x) => x.id.toString() === 'mod');
+				if (state && state.options !== undefined && options_mod !== undefined && options_mod.choices !== undefined) {
+					e = options_mod.choices.find((x) => x.id.toString() === feedback.options['mod'].toString());
+					return (e && e.state === 1)
+				}
+			break;
+			case 'feedback_cue':
+				state = self.cache.feedbacks.feedback_cue ?? false;
+				let options_cue = state.options.find((x) => x.id.toString() === 'cue');
+				if (state && state.options !== undefined && options_cue !== undefined && options_cue.choices !== undefined) {
+					e = options_cue.choices.find((x) => x.id.toString() === feedback.options['cue'].toString());
+					return (e && e.state === 1)
+				}
+			break;
+			default:
+				self.log('warn', 'Unknown feedback: ' + feedback.feedbackId)
 		}
 	}
 
 	// define presets, could be retrieved from xhr request
 	init_presets(presets) {
 		if (!presets) {
+			this.log('warn', 'setting config with empty presets!')
 			return;
 		}
 		this.cache.presets = presets;
@@ -109,63 +147,19 @@ class instance extends instance_skel {
 	// define variables, could be retrieved from xhr request
 	init_variables(variables, variableDefinitions) {
 		if (typeof variables !== 'object') {
+			this.log('warn', 'setting config with empty variables!')
 			return;
 		}
-		this.setVariables(variables);
 		if (typeof variableDefinitions === 'object') {
 			this.setVariableDefinitions(variableDefinitions);
 		}
-	}
-
-	// register feedback handler
-	init_feedbacks(feedbacks) {
-		if (!feedbacks) {
-			return;
-		}
-		for (var i in feedbacks) {
-			if (feedbacks[i].options) {
-				for (var j in feedbacks[i].options) {
-					if (typeof (feedbacks[i].options[j].isVisible) === 'object' && feedbacks[i].options[j].isVisible.logic && feedbacks[i].options[j].isVisible.vars) {
-						feedbacks[i].options[j].isVisible = SecureJSONLogic(feedbacks[i].options[j].isVisible.logic, feedbacks[i].options[j].isVisible.vars);
-					}
-				}
-			}
-		}
-		this.cache.feedbacks = feedbacks;
-		this.setFeedbackDefinitions(feedbacks);
-	}
-
-	// receive and use feedback events here
-	feedback(feedback) {
-		this.log('debug', 'Feedback triggered: ', feedback);
-		var e, state = false;
-		switch (feedback.type) {
-			case 'feedback_state':
-				state = this.cache.feedbacks.feedback_state ?? false;
-				let type = feedback.options.type.toString();
-				let options = state.options.find((x) => x.id.toString() === type);
-				if (state && state.options !== undefined && options !== undefined && options.choices !== undefined) {
-					e = options.choices.find((x) => x.id.toString() === feedback.options[type].toString());
-					if (e && e.state === 1) {
-						let ret = {};
-						if(feedback.options.properties.includes('fg')) ret.color = feedback.options.fg;
-						if(feedback.options.properties.includes('bg')) ret.bgcolor = feedback.options.bg;
-						if(feedback.options.properties.includes('text') && e.name) ret.text = e.name;
-						return ret;
-					} else {
-						let ret = {};
-						if(feedback.options.properties.includes('text') && e.name) ret.text = e.name;
-						return ret;
-					}
-				}
-				break;
-		}
+		this.setVariableValues(variables);
 	}
 
 	// helper to create the required config fields from the token
 	parse_token(config) {
 		if (config.token === '') {
-			this.status(this.STATUS_WARNING, 'Missing token');
+			this.updateStatus(InstanceStatus.BadConfig, 'Missing token');
 			return config;
 		}
 		var b = new Buffer(config.token.substring(2), 'base64');
@@ -177,8 +171,7 @@ class instance extends instance_skel {
 		config.baseUrl = url.protocol + '//' + url.host;
 		config.eventToken = path[3];
 		config.endPoint = config.baseUrl + '/' + path[1] + '/mod/cuelist/companion/' + path[3] + '/' + path[4];
-		config.searchParams = url.searchParams;
-		config.searchParams.append('version', this.package_info.version);
+		config.searchParams = url.searchParams.toString();
 		config.id = new Date().getTime();
 		return config;
 	}
@@ -188,29 +181,45 @@ class instance extends instance_skel {
 		if (!this.cache.config) {
 			return;
 		}
-		var params = new URLSearchParams(this.cache.config.searchParams.toString());
-		params.append('cp', 'init');
-		var url = this.cache.config.endPoint + '?' + params.toString();
-		this.system.emit('rest_get', url, (err, result) => {
-			if (err !== null) {
-				this.log('error', 'HTTP POST Request failed (' + result.error.code + ')');
-				this.status(this.STATUS_ERROR, result.error.code);
-			} else if (result.response.statusCode === 200 && result.data) {
-				this.log('info', 'load config');
-				this.init_actions(result.data.actions);
-				this.init_presets(result.data.presets);
-				this.init_variables(result.data.variables, result.data.variableDefinitions);
-				this.init_feedbacks(result.data.feedbacks);
-				this.checkFeedbacks('feedback_state');
-			} else {
-				this.status(this.STATUS_ERROR);
+		let params = new URLSearchParams(this.cache.config.searchParams);
+		params.append('cp','init')
+		params.append('v',this.cache.targetVersion)
+		let url = this.cache.config.endPoint + '?' + params.toString()
+		got.get(url, {}).then(response=>response.body).then(body=>{
+			let json = {}
+			try {
+			  json = JSON.parse(body);
+			} catch(e){
+				this.log('error', 'JSON malformed')
+				return;
 			}
-		});
+			if (!json) {
+				this.log('error', 'received config reads: ' + JSON.stringify(json) )
+				return;
+			}
+			try {
+				this.log('info', 'setting config');
+				this.init_actions(json.actions, this.action);
+				this.init_presets(json.presets);
+				this.init_variables(json.variables, json.variableDefinitions);
+				this.init_feedbacks(json.feedbacks, this.feedback);
+				this.log('info', 'setting config done');
+				this.checkFeedbacks('feedback_state');
+			} catch (e) {
+				this.log('error', 'setting config failed')
+				return;
+			}
+			
+		}).catch(e=>{
+			this.log('error', 'HTTP GET Request failed ' + url);
+			this.updateStatus(InstanceStatus.ConnectionFailure, JSON.stringify(e));
+		})
 	}
 
 	// helper to establish the socket connection
 	socket_init() {
-		this.setVariable('websocket', 'offline');
+		this.log('debug', 'socket_init');
+		this.setVariableValues({websocket: 'offline'});
 		if (this.io !== undefined) {
 			this.io.close();
 			delete this.io;
@@ -220,21 +229,22 @@ class instance extends instance_skel {
 		}
 		if (!this.cache.config.baseUrl) {
 			this.log('info', 'Websocket connection not yet possible, missing token in config');
-			this.status(this.STATUS_WARNING, 'Missing target');
+			this.updateStatus(InstanceStatus.BadConfig, 'Missing target');
 			return;
 		}
 		try {
-			var params = new URLSearchParams(this.cache.config.searchParams.toString());
+			var params = new URLSearchParams();
+			params.append('v', this.cache.targetVersion);
 			params.append('ids', this.cache.config.id);
 			var url = '/update/' + this.cache.config.eventToken + '/cuelist?' + params.toString();
 			this.io = io(this.cache.config.baseUrl, {
 				path: url
 			});
 			this.io.off('connect').on('connect', () => {
-				this.setVariable('websocket', 'online');
+				this.setVariableValues({websocket: 'online'});
 				this.log('debug', 'Websocket connected');
 				this.set_config();
-				this.status(this.STATE_OK);
+				this.updateStatus(InstanceStatus.Ok);
 			});
 			this.io.off('vs').on('vs', (data) => {
 				this.log('debug', 'Websocket received data');
@@ -243,14 +253,14 @@ class instance extends instance_skel {
 						: JSON.parse(new TextDecoder().decode(new rawinflate.Zlib.RawInflate(new Uint8Array(data)).decompress()));
 				switch (json.action) {
 					case 'change_feedback_state':
-						state = this.cache.feedbacks.feedback_state ?? false;
 						let type = json.type.toString();
+						state = this.cache.feedbacks['feedback_' + type] ?? false;
 						let options = state.options.find((x) => x.id.toString() === type);
 						if (state && state.options !== undefined && options !== undefined && options.choices !== undefined) {
 							e = options.choices.find((x) => x.id.toString() === json.id.toString());
 							if (e) {
 								e.state = json.state;
-								this.checkFeedbacks('feedback_state');
+								this.checkFeedbacks('feedback_' + type);
 							}
 						}
 						break;
@@ -261,25 +271,24 @@ class instance extends instance_skel {
 						if (!json.var || json.var.toString().length === 0) {
 							return;
 						}
-						this.setVariable(json.var.toString(), json.value);
-						if(json.reset) {
-							this.setVariable(json.var.toString(), '');
-						}
+						let vars = {};
+						vars[json.var.toString()] = json.reset? '' : json.value;
+						this.setVariableValues(vars);
 						break;
 					default:
 						this.log('warning', 'Feedback for a feature that is not implemented. Maybe you are missing an update? ' + json.action);
 				}
-				this.status(this.STATUS_OK);
+				this.updateStatus(InstanceStatus.Ok);
 			});
 			this.io.off('disconnect').on('disconnect', () => {
 				this.log('warning', 'Websocket disconnected');
-				this.status(this.STATUS_WARNING, 'Connection lost');
-				this.setVariable('websocket', 'offline');
+				this.updateStatus(InstanceStatus.Disconnected, 'Connection lost');
+				this.setVariableValues({websocket: 'offline'});
 			});
 			this.io.off('connect_error').on('connect_error', (e) => {
 				this.log('error', 'Websocket error: ' + e.message);
-				this.status(this.STATUS_ERROR, 'Connection error');
-				this.setVariable('websocket', 'offline');
+				this.updateStatus(InstanceStatus.ConnectionFailure, 'Connection error');
+				this.setVariableValues({websocket: 'offline'});
 			});
 		} catch (e) {
 			this.log('error', 'Error while conecting websocket: ' + e.message);
@@ -287,15 +296,20 @@ class instance extends instance_skel {
 	}
 
 	// REQUIRED: whenever users click save in the modules config, this gets triggered with new config
-	updateConfig(config) {
+	configUpdated(config) {
 		this.cache.config = this.parse_token(config);
+		this.config = this.cache.config;
 		this.log('debug', 'Config updated');
+		this.updateStatus(InstanceStatus.Connecting);
 		this.socket_init();
 	}
 
 	// REQUIRED: this is called when companion initialized the module, all set up should be triggered here
-	init() {
-		this.status(this.STATUS_ERROR);
+	init(conf, firstTime) {
+		if (conf && conf.token) {
+			this.cache.config = this.parse_token(conf);
+		}
+		this.updateStatus(InstanceStatus.Connecting);
 		this.log('debug', 'init');
 		this.socket_init();
 	}
@@ -310,4 +324,4 @@ class instance extends instance_skel {
 	}
 }
 
-exports = module.exports = instance;
+runEntrypoint(ViStreamInstance, [])
