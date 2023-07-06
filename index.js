@@ -65,7 +65,7 @@ class ViStreamInstance extends InstanceBase {
 	action(action) {
 		let self = this.instance
 		if (self.cache.actions[action.actionId]) {
-			var b = new Buffer(action.actionId.substring(2), 'base64');
+			var b = Buffer.from(action.actionId.substring(2), 'base64');
 			if (!self.actions) {
 				self.actions = [];
 			}
@@ -162,7 +162,7 @@ class ViStreamInstance extends InstanceBase {
 			this.updateStatus(InstanceStatus.BadConfig, 'Missing token');
 			return config;
 		}
-		var b = new Buffer(config.token.substring(2), 'base64');
+		var b = Buffer.from(config.token.substring(2), 'base64');
 		var url = new URL(b.toString());
 		var path = url.pathname.split('/');
 		if (path.length !== 5) {
