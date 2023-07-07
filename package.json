@@ -2,7 +2,7 @@
 	"name": "vistream-online",
 	"version": "2.0.0",
 	"main": "index.js",
-	"type":"module",
+	"type": "module",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
@@ -10,6 +10,7 @@
 	"dependencies": {
 		"@companion-module/base": "~1.4",
 		"got": "^12.6.0",
+		"secure-json-logic": "^0.9.11",
 		"socket.io-client": "3.1.0",
 		"zlibjs": "0.3.1"
 	},

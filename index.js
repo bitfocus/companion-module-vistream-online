@@ -5,6 +5,7 @@ import { InstanceBase, runEntrypoint, InstanceStatus } from '@companion-module/b
 import io from 'socket.io-client';
 import got from 'got'
 import rawinflate from 'zlibjs/bin/rawinflate.min.js';
+import SecureJSONLogic from 'secure-json-logic';
 
 class ViStreamInstance extends InstanceBase {
 	// REQUIRED: constructor
@@ -103,6 +104,24 @@ class ViStreamInstance extends InstanceBase {
 		for (var i in feedbacks) {
 			feedbacks[i].callback = callback;
 			feedbacks[i].instance = this;
+			if (feedbacks[i].options) {
+				let logic = false;
+				try {
+					logic = JSON.parse(feedbacks[i].options.find(option => option.id === 'visibility-logic').value)
+				} catch {
+					logic = false;
+				}
+				if (logic && logic.fields) {
+					for (var j in feedbacks[i].options) {
+						if (feedbacks[i].options[j].id !== 'visibility-logic' && typeof (logic.fields[feedbacks[i].options[j].id]) === 'object' && logic.fields[feedbacks[i].options[j].id].logic && logic.fields[feedbacks[i].options[j].id].vars) {
+							feedbacks[i].options[j].isVisible = SecureJSONLogic(logic.fields[feedbacks[i].options[j].id].logic, logic.fields[feedbacks[i].options[j].id].vars);
+						}
+						if (feedbacks[i].options[j].id === 'visibility-logic') {
+							feedbacks[i].options[j].isVisible = (options) => false
+						}
+					}
+				}
+			}
 		}
 		this.cache.feedbacks = feedbacks;
 		this.setFeedbackDefinitions(feedbacks);
@@ -113,7 +132,16 @@ class ViStreamInstance extends InstanceBase {
 		let self = this.instance;
 		var e, state = false;
 		switch (feedback.feedbackId) {
-			case 'feedback_mod':
+			case 'feedback_state':
+				state = self.cache.feedbacks.feedback_state ?? false;
+				let type = feedback.options.type.toString();
+				let options = state.options.find((x) => x.id.toString() === type);
+				if (state && state.options !== undefined && options !== undefined && options.choices !== undefined) {
+					e = options.choices.find((x) => x.id.toString() === feedback.options[type].toString());
+					return (e && e.state === 1)
+				}
+				break;
+			/* case 'feedback_mod':
 				state = self.cache.feedbacks.feedback_mod ?? false;
 				let options_mod = state.options.find((x) => x.id.toString() === 'mod');
 				if (state && state.options !== undefined && options_mod !== undefined && options_mod.choices !== undefined) {
@@ -128,7 +156,7 @@ class ViStreamInstance extends InstanceBase {
 					e = options_cue.choices.find((x) => x.id.toString() === feedback.options['cue'].toString());
 					return (e && e.state === 1)
 				}
-			break;
+			break; */
 			default:
 				self.log('warn', 'Unknown feedback: ' + feedback.feedbackId)
 		}
@@ -254,13 +282,13 @@ class ViStreamInstance extends InstanceBase {
 				switch (json.action) {
 					case 'change_feedback_state':
 						let type = json.type.toString();
-						state = this.cache.feedbacks['feedback_' + type] ?? false;
+						state = this.cache.feedbacks['feedback_state'] ?? false;
 						let options = state.options.find((x) => x.id.toString() === type);
 						if (state && state.options !== undefined && options !== undefined && options.choices !== undefined) {
 							e = options.choices.find((x) => x.id.toString() === json.id.toString());
 							if (e) {
 								e.state = json.state;
-								this.checkFeedbacks('feedback_' + type);
+								this.checkFeedbacks('feedback_state');
 							}
 						}
 						break;
