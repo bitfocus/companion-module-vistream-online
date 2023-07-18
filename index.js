@@ -130,22 +130,6 @@ class ViStreamInstance extends InstanceBase {
 					return (e && e.state === 1)
 				}
 				break;
-			/* case 'feedback_mod':
-				state = self.cache.feedbacks.feedback_mod ?? false;
-				let options_mod = state.options.find((x) => x.id.toString() === 'mod');
-				if (state && state.options !== undefined && options_mod !== undefined && options_mod.choices !== undefined) {
-					e = options_mod.choices.find((x) => x.id.toString() === feedback.options['mod'].toString());
-					return (e && e.state === 1)
-				}
-			break;
-			case 'feedback_cue':
-				state = self.cache.feedbacks.feedback_cue ?? false;
-				let options_cue = state.options.find((x) => x.id.toString() === 'cue');
-				if (state && state.options !== undefined && options_cue !== undefined && options_cue.choices !== undefined) {
-					e = options_cue.choices.find((x) => x.id.toString() === feedback.options['cue'].toString());
-					return (e && e.state === 1)
-				}
-			break; */
 			default:
 				self.log('warn', 'Unknown feedback: ' + feedback.feedbackId)
 		}
