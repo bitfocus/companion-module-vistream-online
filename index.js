@@ -20,7 +20,7 @@ class ViStreamInstance extends InstanceBase {
 	}
 
 	// REQUIRED: Return config fields for web config
-	
+
 	getConfigFields() {
 		return [
 			{
@@ -105,20 +105,9 @@ class ViStreamInstance extends InstanceBase {
 			feedbacks[i].callback = callback;
 			feedbacks[i].instance = this;
 			if (feedbacks[i].options) {
-				let logic = false;
-				try {
-					logic = JSON.parse(feedbacks[i].options.find(option => option.id === 'visibility-logic').value)
-				} catch {
-					logic = false;
-				}
-				if (logic && logic.fields) {
-					for (var j in feedbacks[i].options) {
-						if (feedbacks[i].options[j].id !== 'visibility-logic' && typeof (logic.fields[feedbacks[i].options[j].id]) === 'object' && logic.fields[feedbacks[i].options[j].id].logic && logic.fields[feedbacks[i].options[j].id].vars) {
-							feedbacks[i].options[j].isVisible = SecureJSONLogic(logic.fields[feedbacks[i].options[j].id].logic, logic.fields[feedbacks[i].options[j].id].vars);
-						}
-						if (feedbacks[i].options[j].id === 'visibility-logic') {
-							feedbacks[i].options[j].isVisible = (options) => false
-						}
+				for (var j in feedbacks[i].options) {
+					if (typeof (feedbacks[i].options[j].isVisible) === 'object' && feedbacks[i].options[j].isVisible.logic && feedbacks[i].options[j].isVisible.vars) {
+						feedbacks[i].options[j].isVisible = SecureJSONLogic(feedbacks[i].options[j].isVisible.logic, feedbacks[i].options[j].isVisible.vars);
 					}
 				}
 			}
@@ -237,7 +226,7 @@ class ViStreamInstance extends InstanceBase {
 				this.log('error', 'setting config failed')
 				return;
 			}
-			
+
 		}).catch(e=>{
 			this.log('error', 'HTTP GET Request failed ' + url);
 			this.updateStatus(InstanceStatus.ConnectionFailure, JSON.stringify(e));
