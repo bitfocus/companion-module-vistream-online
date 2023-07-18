@@ -273,8 +273,14 @@ class ViStreamInstance extends InstanceBase {
 							return;
 						}
 						let vars = {};
-						vars[json.var.toString()] = json.reset? '' : json.value;
+						vars[json.var.toString()] = json.value;
 						this.setVariableValues(vars);
+						if (json.reset) {
+							setTimeout(()=>{
+								vars[json.var.toString()] = '';
+								this.setVariableValues(vars);
+							},10);
+						}
 						break;
 					default:
 						this.log('warning', 'Feedback for a feature that is not implemented. Maybe you are missing an update? ' + json.action);
