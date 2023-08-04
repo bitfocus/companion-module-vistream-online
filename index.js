@@ -225,12 +225,12 @@ class ViStreamInstance extends InstanceBase {
 			this.io.close();
 			delete this.io;
 		}
-		if (!this.cache.config && this.config.token) {
+		if (!this.cache.config && this.config && this.config.token) {
 			this.cache.config = this.parse_token(this.config);
 		}
-		if (!this.cache.config.baseUrl) {
+		if ((!this.config && !this.cache.config) || !this.cache.config.baseUrl) {
 			this.log('info', 'Websocket connection not yet possible, missing token in config');
-			this.updateStatus(InstanceStatus.BadConfig, 'Missing target');
+			this.updateStatus(InstanceStatus.BadConfig, 'Please set Token');
 			return;
 		}
 		try {
