@@ -5,7 +5,7 @@ import { InstanceBase, runEntrypoint, InstanceStatus } from '@companion-module/b
 import io from 'socket.io-client';
 import got from 'got'
 import rawinflate from 'zlibjs/bin/rawinflate.min.js';
-import SecureJSONLogic from 'secure-json-logic';
+import SecureJSONLogic from './secure-json-logic.js';
 
 class ViStreamInstance extends InstanceBase {
 	// REQUIRED: constructor
@@ -41,7 +41,7 @@ class ViStreamInstance extends InstanceBase {
 		];
 	}
 
-	// Set up actions, needs data from modules to be availabe
+	// Set up actions, needs data from modules to be available
 	init_actions(actions, callback) {
 		if (!actions) {
 			this.log('warn', 'setting config with empty actions!')
@@ -159,22 +159,29 @@ class ViStreamInstance extends InstanceBase {
 
 	// helper to create the required config fields from the token
 	parse_token(config) {
-		if (config.token === '') {
-			this.updateStatus(InstanceStatus.BadConfig, 'Missing token');
+		try {
+			if (!config || !config.token || config.token === '') {
+				this.updateStatus(InstanceStatus.BadConfig, 'Missing token');
+				if (!config) config = { token: '' };
+				if (typeof config.token === 'undefined') config.token = '';
+				return config;
+			}
+			var b = Buffer.from(config.token.substring(2), 'base64');
+			var url = new URL(b.toString());
+			var path = url.pathname.split('/');
+			if (path.length !== 5) {
+				return config;
+			}
+			config.baseUrl = url.protocol + '//' + url.host;
+			config.eventToken = path[3];
+			config.endPoint = config.baseUrl + '/' + path[1] + '/mod/cuelist/companion/' + path[3] + '/' + path[4];
+			config.searchParams = url.searchParams.toString();
+			config.id = new Date().getTime();
 			return config;
+		} catch (e) {
+			this.log('error', 'setting config failed ' + JSON.stringify(e));
 		}
-		var b = Buffer.from(config.token.substring(2), 'base64');
-		var url = new URL(b.toString());
-		var path = url.pathname.split('/');
-		if (path.length !== 5) {
-			return config;
-		}
-		config.baseUrl = url.protocol + '//' + url.host;
-		config.eventToken = path[3];
-		config.endPoint = config.baseUrl + '/' + path[1] + '/mod/cuelist/companion/' + path[3] + '/' + path[4];
-		config.searchParams = url.searchParams.toString();
-		config.id = new Date().getTime();
-		return config;
+		return { token: '' };
 	}
 
 	// helper to retrieve modules list and(re-)initialize all state after config edit event
@@ -237,9 +244,11 @@ class ViStreamInstance extends InstanceBase {
 			var params = new URLSearchParams();
 			params.append('v', this.cache.targetVersion);
 			params.append('ids', this.cache.config.id);
-			var url = '/update/' + this.cache.config.eventToken + '/cuelist?' + params.toString();
+			var url = '/update/' + this.cache.config.eventToken + '/cuelist';
 			this.io = io(this.cache.config.baseUrl, {
-				path: url
+				path: url,
+				transports: ['websocket', 'polling'],
+				query: params.toString()
 			});
 			this.io.off('connect').on('connect', () => {
 				this.setVariableValues({websocket: 'online'});
