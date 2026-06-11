@@ -80,13 +80,12 @@ class ViStreamInstance extends InstanceBase {
 					cp: 'run',
 					actions: JSON.stringify(self.actions)
 				}
+				self.actions = [];
 				got.post(self.cache.config.endPoint, {form: params}).then(response=>{
 					self.updateStatus(InstanceStatus.Ok, response.statusCode);
-					self.actions = [];
 				}).catch(e=>{
 					self.log('error', 'HTTP POST Request failed (' + e + ')');
 					self.updateStatus(InstanceStatus.ConnectionFailure, e);
-					self.actions = [];
 				});
 				delete self.run_timer;
 			}, 1);
