@@ -10,18 +10,22 @@ ViStream.online is the first real-time CMS for event operators. All participants
 - Edit the module and copy the Bitfocus Companion token.
 - Add the token to the corresponding Companion setup field and save it.
 
-### Available actions
+### Actions
 
-- all actions that are applicable for cuelists (mod visibility, stream state, ...)
+One action per talk of the event. Choose the module of the talk, then one of its actions (show or hide a module, start or stop the stream, start a cue, …).
 
-### Available feedback
+### Feedbacks
 
-- Mod online status
-- Cue status
+One feedback per talk. Choose the module, then one of its states (module live, stream, recording, presentation, cue, …). Modules can add their own feedbacks, for example the audio levels of a ViStreamer route.
 
-### Available variables
-- Stream on air state
-- Presenter key presses
-- Conference slot state
-- Conference on air speaker names
-- ...
+### Presets
+
+One section per talk with groups per module or category (Modules, Regie, …). Button texts use variables, so they follow renamed modules and cues.
+
+### Variables
+
+Names of modules and cues, stream and recording state, participants, current slide, on-air names and more, depending on the modules of the event. `websocket` shows whether the connection to the platform is online.
+
+### Updates
+
+The module loads all definitions when it connects. Afterwards the platform only sends what changed. Modules can also send small scripts that run inside this connection, for example to read audio levels from a ViStreamer on the same computer.

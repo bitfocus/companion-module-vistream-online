@@ -1,9 +1,11 @@
 {
+	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
+	"type": "connection",
 	"id": "vistream-online",
 	"name": "ViStream.online",
 	"shortname": "vistream",
 	"description": "Streaming platform for events, conferences and more.",
-	"version": "2.0.7",
+	"version": "0.0.0",
 	"license": "MIT",
 	"repository": "git+https://github.com/bitfocus/companion-module-vistream-online.git",
 	"bugs": "https://github.com/bitfocus/companion-module-vistream-online/issues",
@@ -14,18 +16,13 @@
 		}
 	],
 	"runtime": {
-		"type": "node18",
+		"type": "node22",
 		"api": "nodejs-ipc",
 		"apiVersion": "0.0.0",
-		"entrypoint": "../index.js"
+		"entrypoint": "../src/main.js"
 	},
 	"legacyIds": [],
 	"manufacturer": "ViStream",
 	"products": ["online"],
-	"keywords": [
-		"ViStream",
-		"streaming",
-		"conference",
-		"platform"
-	]
+	"keywords": ["ViStream", "streaming", "conference", "platform"]
 }
